@@ -221,6 +221,9 @@ func main() {
 		}
 	case "retrieve":
 		dec := json.NewDecoder(os.Stdin)
+
+		var rWg sync.WaitGroup
+
 		for {
 			var data map[string]any
 			if err := dec.Decode(&data); err == io.EOF {
@@ -229,36 +232,41 @@ func main() {
 				log.Fatal("error decoding JSON: %w", err)
 			}
 
-			search, found := data[flags.embedParam]
-			if !found {
-				log.Fatal("Input didn't contain a search parameter.")
-			}
-			searchStr, ok := search.(string)
-			if !ok {
-				log.Fatal("Parameter ", flags.embedParam, " is not a string.")
-			}
-			vector, err := computeEmbedding(searchStr, requestsChan)
-			if err != nil {
-				log.Fatal(err)
-			}
+			rWg.Add(1)
+			go func() {
+				defer rWg.Done()
+				search, found := data[flags.embedParam]
+				if !found {
+					log.Fatal("Input didn't contain a search parameter.")
+				}
+				searchStr, ok := search.(string)
+				if !ok {
+					log.Fatal("Parameter ", flags.embedParam, " is not a string.")
+				}
+				vector, err := computeEmbedding(searchStr, requestsChan)
+				if err != nil {
+					log.Fatal(err)
+				}
 
-			err, jsonData := retrieveEmbeddings(client, vector)
-			if err != nil {
-				log.Fatal(err)
-			}
+				err, jsonData := retrieveEmbeddings(client, vector)
+				if err != nil {
+					log.Fatal(err)
+				}
 
-			resp := &EmbeddingResponse{
-				Input:    data,
-				Response: jsonData,
-			}
+				resp := &EmbeddingResponse{
+					Input:    data,
+					Response: jsonData,
+				}
 
-			jsonStr, err := json.Marshal(resp)
-			if err != nil {
-				log.Fatal("error marshaling JSON: %w", err)
-			}
-			fmt.Println(string(jsonStr))
+				jsonStr, err := json.Marshal(resp)
+				if err != nil {
+					log.Fatal("error marshaling JSON: %w", err)
+				}
+				fmt.Println(string(jsonStr))
+			}()
 
 		}
+		rWg.Wait()
 	case "deleteAll":
 		ctx := context.Background()
 		params := pinecone.DeleteVectorsParams{

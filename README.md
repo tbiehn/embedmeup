@@ -5,7 +5,7 @@ We rely on `text-embedding-ada-002` for embeddings.
 
 ## Features
 
-- Incorporate the embeddings retrieval into CLI workflows.
+- Incorporate embeddings retrieval into CLI workflows.
 - JSON in, JSON out
 
 ## Installation
